@@ -1,0 +1,9 @@
+[package]
+name = "purge-node-modules"
+version = "0.1.0"
+authors = ["Jordan Adams <hi@jordanadams.co.uk>"]
+
+[dependencies]
+dirs = "1.0.5"
+glob = "0.3.0"
+walkdir = "2.2.7"
