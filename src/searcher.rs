@@ -3,8 +3,9 @@ use std::path::{ Path, PathBuf };
 // use std::time::Duration;
 use walkdir::{ WalkDir, DirEntry };
 
+#[derive(Debug)]
 pub struct SearchEntry {
-    path: Path,
+    path: PathBuf,
     // age: Duration,
     // size: u64
 }
@@ -12,14 +13,22 @@ pub struct SearchEntry {
 impl SearchEntry {
     fn from_path(path: &PathBuf) -> SearchEntry {
         SearchEntry {
-            path: path
+            path: path.to_path_buf()
         }
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.path.to_path_buf()
+    }
+
+    pub fn is_dir(&self) -> bool {
+        self.path().is_dir() == true
     }
 }
 
 pub struct SearchOptions {
-    filter_entry: fn(&Path) -> bool,
-    filter: fn(&DirEntry) -> bool
+    pub filter_entry: fn(&DirEntry) -> bool,
+    pub filter: fn(&SearchEntry) -> bool
 }
 
 impl SearchOptions {
@@ -31,18 +40,18 @@ impl SearchOptions {
     }
 }
 
-pub type SearchEnties = Vec<SearchEntry>;
+pub type SearchEntries = Vec<SearchEntry>;
 
 pub fn search(root: &Path) -> Vec<SearchEntry> {
-    search_with(root, SearchOptions::default());
+    search_with(root, &SearchOptions::default())
 }
 
-pub fn search_with(root: &PathBuf, options: &SearchOptions) -> Vec<SearchEntry> {
-    let paths: Vec<PathBuf> = WalkDir::new(root)
+pub fn search_with(root: &Path, options: &SearchOptions) -> SearchEntries {
+    WalkDir::new(root)
         .into_iter()
-        .filter_entry(|e| options.should_take)
+        .filter_entry(options.filter_entry)
         .filter_map(|r| r.ok())
-        .filter(|e| options.filter)
-        .map(|e| SearchEntry::from_path)
-        .collect();
+        .map(|e| SearchEntry::from_path(&e.path().to_path_buf()))
+        .filter(options.filter)
+        .collect()
 }

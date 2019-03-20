@@ -7,7 +7,8 @@ use std::fs::{File};
 use std::io::Error as IOError;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use searcher::search;
+use walkdir::{ DirEntry };
+use searcher::{ search_with, SearchOptions, SearchEntry };
 use dirs::home_dir;
 
 const ONE_MONTH_IN_SECONDS: u64 = 2629746;
@@ -18,12 +19,16 @@ fn root_dir() -> PathBuf {
     Path::join(home.as_path(), Path::new("code"))
 }
 
-fn is_within_node_modules(p: &Path) -> bool {
-    p.ancestors().skip(1).any(|a| a.ends_with("node_modules"))
+fn is_within_node_modules(entry: &DirEntry) -> bool {
+    entry
+        .path()
+        .ancestors()
+        .skip(1)
+        .any(|a| a.ends_with("node_modules"))
 }
 
-fn should_delete(p: &Path) -> Result<bool, IOError> {
-    File::open(p)
+fn should_delete(entry: &SearchEntry) -> Result<bool, IOError> {
+    File::open(entry.path())
         .and_then(|f| f.metadata())
         .and_then(|m| m.modified())
         .and_then(|m| Ok(SystemTime::now().duration_since(m).unwrap()))
@@ -31,21 +36,17 @@ fn should_delete(p: &Path) -> Result<bool, IOError> {
 }
 
 fn main() {
-    // let paths: Vec<PathBuf> = WalkDir::new(root_dir())
-    //     .into_iter()
-    //     .filter_entry(|e| !is_within_node_modules(e.path()))
-    //     .filter_map(|r| r.ok())
-    //     .filter(|e| e.path().ends_with("node_modules"))
-    //     .map(|e| e.path().to_owned())
-    //     .collect();
+    let options = SearchOptions {
+        filter_entry: |e| !is_within_node_modules(e),
+        filter: |e| {
+            e.is_dir()
+                && e.path().ends_with("node_modules")
+                && should_delete(e).unwrap_or(false)
+        }
+    };
 
-    // for path in paths {
-    //     match should_delete(&path) {
-    //         Ok(true) => {
-    //             println!("Deleting {}", path.display());
-    //             // remove_dir(path).expect(format!("Failed to delete {}", path.display()));
-    //         }
-    //         _ => (),
-    //     }
-    // }
+    for entry in search_with(&root_dir(), &options) {
+        println!("{}", entry.path().display());
+        // remove_dir(path).expect(format!("Failed to delete {}", path.display()));
+    }
 }
